@@ -50,6 +50,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(403, "Admins only")
+    return user
+
+
 # ---------- Authorisation ----------
 # Rule: admins see every collection; everyone else sees only collections they are a member of.
 # Every document check goes through these functions, never through the client or the LLM.

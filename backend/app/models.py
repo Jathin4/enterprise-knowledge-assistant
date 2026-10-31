@@ -82,6 +82,56 @@ class DocumentChunk(Base):
     document: Mapped[Document] = relationship(back_populates="chunks")
 
 
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    messages: Mapped[list["Message"]] = relationship(
+        order_by="Message.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    __table_args__ = (CheckConstraint("role IN ('user', 'assistant')", name="ck_messages_role"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(10))
+    content: Mapped[str]
+    # A snapshot of each cited source (file, page, heading, snippet), so old answers still
+    # show their evidence even after the document is deleted or re-indexed.
+    sources: Mapped[list] = mapped_column(JSONB, default=list)
+    abstained: Mapped[bool] = mapped_column(default=False)
+    latency_ms: Mapped[int | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class EvaluationRun(Base):
+    """One run of the benchmark: the settings used, summary metrics and every question's result."""
+    __tablename__ = "evaluation_runs"
+    __table_args__ = (CheckConstraint("status IN ('running', 'done', 'failed')", name="ck_evaluation_runs_status"),
+                      CheckConstraint("mode IN ('retrieval', 'full')", name="ck_evaluation_runs_mode"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    label: Mapped[str] = mapped_column(String(100))
+    mode: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="running")
+    progress: Mapped[int] = mapped_column(default=0)
+    total: Mapped[int] = mapped_column(default=0)
+    error: Mapped[str | None]
+    config: Mapped[dict] = mapped_column(JSONB, default=dict)
+    metrics: Mapped[dict] = mapped_column(JSONB, default=dict)
+    results: Mapped[list] = mapped_column(JSONB, default=list)
+    duration_s: Mapped[float | None]
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     __table_args__ = (Index("ix_audit_events_created_at", "created_at"),)

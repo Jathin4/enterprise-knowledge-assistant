@@ -1,0 +1,14 @@
+{
+  "Engineering": [
+    "api_authentication_guide.docx",
+    "information_security_policy.pdf",
+    "incident_response_runbook.docx",
+    "deployment_guide.pdf",
+    "data_retention_policy.txt"
+  ],
+  "Finance": [
+    "expense_policy.txt",
+    "procurement_policy.pdf",
+    "vendor_onboarding_notes.txt"
+  ]
+}

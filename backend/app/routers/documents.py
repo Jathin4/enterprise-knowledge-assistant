@@ -1,6 +1,3 @@
-import hashlib
-import re
-import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, Response, UploadFile
@@ -10,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app.ingestion import detect_file_type, ingest_document
+from app.ingestion import DuplicateDocument, create_document, ingest_document
 from app.models import Collection, Document, User
+from app.retrieval import retrieve
 from app.schemas import CollectionOut, DocumentOut
 from app.security import audit, can_delete, get_current_user, get_document_for_user, readable_collection_ids
 
@@ -29,6 +27,15 @@ def list_collections(user: User = Depends(get_current_user), db: Session = Depen
     return db.scalars(select(Collection).where(Collection.id.in_(ids)).order_by(Collection.name)).all()
 
 
+@router.get("/search")
+def search_chunks(q: str, k: int = 5, collection_id: int | None = None,
+                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Raw retrieval results (no LLM): useful for checking what the assistant will see."""
+    if not q.strip() or not 1 <= k <= 20:
+        raise HTTPException(422, "q must not be empty and k must be between 1 and 20")
+    return [h.to_dict() for h in retrieve(db, user, q, k=k, collection_id=collection_id)]
+
+
 @router.post("/documents", response_model=DocumentOut, status_code=202)
 def upload_document(request: Request, tasks: BackgroundTasks,
                     collection_id: int = Form(...), file: UploadFile = File(...),
@@ -44,33 +51,17 @@ def upload_document(request: Request, tasks: BackgroundTasks,
     if not data:
         raise HTTPException(400, "File is empty")
     try:
-        file_type = detect_file_type(data, file.filename or "")
+        # Stored under a random name; the user's filename is only kept as display text.
+        doc = create_document(db, user.id, collection_id, file.filename or "", data)
+        audit(db, user.id, "document.upload", "document", doc.id, ip=client_ip(request),
+              filename=doc.filename, collection_id=collection_id)
+        db.commit()
     except ValueError as e:
         raise HTTPException(415, str(e))
-
-    checksum = hashlib.sha256(data).hexdigest()
-    duplicate = db.scalar(select(Document.id).where(Document.collection_id == collection_id,
-                                                    Document.checksum == checksum))
-    if duplicate:
-        raise HTTPException(409, f"This file is already in the collection (document {duplicate})")
-
-    # Stored under a random name; the user's filename is only kept as display text.
-    settings.upload_dir.mkdir(parents=True, exist_ok=True)
-    path = settings.upload_dir / f"{uuid.uuid4().hex}.{file_type}"
-    path.write_bytes(data)
-    display_name = re.split(r"[\\/]", file.filename or "")[-1][:255] or f"upload.{file_type}"
-
-    doc = Document(owner_id=user.id, collection_id=collection_id, filename=display_name, file_type=file_type,
-                   size_bytes=len(data), checksum=checksum, storage_path=str(path))
-    db.add(doc)
-    try:
-        db.flush()
-        audit(db, user.id, "document.upload", "document", doc.id, ip=client_ip(request),
-              filename=display_name, collection_id=collection_id)
-        db.commit()
+    except DuplicateDocument as e:
+        raise HTTPException(409, str(e))
     except IntegrityError:  # the same file uploaded twice at the same moment
         db.rollback()
-        path.unlink(missing_ok=True)
         raise HTTPException(409, "This file is already in the collection")
 
     tasks.add_task(ingest_document, doc.id)

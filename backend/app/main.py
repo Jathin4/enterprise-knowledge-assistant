@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_db
 from app.ingestion import resume_unfinished
-from app.routers import auth, documents
+from app.routers import auth, chat, documents, evaluations
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -25,6 +25,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Enterprise AI Knowledge Assistant", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(documents.router)
+app.include_router(chat.router)
+app.include_router(evaluations.router)
 
 
 @app.get("/api/health")

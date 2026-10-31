@@ -1,8 +1,10 @@
 """Turn an uploaded file into searchable chunks: extract → clean → chunk → embed → store."""
+import hashlib
 import io
 import logging
 import re
 import threading
+import uuid
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
@@ -21,8 +23,6 @@ from app.models import Document, DocumentChunk
 
 log = logging.getLogger(__name__)
 
-MAX_CHARS = 3000      # ≈ 750 tokens (1 token ≈ 4 characters of English)
-OVERLAP_CHARS = 400   # ≈ 100 tokens repeated from the previous chunk
 DOC_PREFIX = "search_document: "  # nomic-embed-text task prefix (questions use "search_query: ")
 MAX_DOCX_UNZIPPED = 200 * 1024 * 1024  # guards against "zip bomb" files
 
@@ -56,6 +56,36 @@ def detect_file_type(data: bytes, filename: str) -> str:
             raise ValueError("Text files must be UTF-8 encoded")
         return "txt"
     raise ValueError("Unsupported file type: only PDF, DOCX and TXT are accepted")
+
+
+class DuplicateDocument(Exception):
+    def __init__(self, existing_id: int):
+        super().__init__(f"This file is already in the collection (document {existing_id})")
+        self.existing_id = existing_id
+
+
+def create_document(db, owner_id: int, collection_id: int, filename: str, data: bytes) -> Document:
+    """Validate, store the file under a random name and add a 'queued' Document (not yet committed).
+    Raises ValueError (bad file) or DuplicateDocument. Used by the upload API and manage.py."""
+    file_type = detect_file_type(data, filename)
+    checksum = hashlib.sha256(data).hexdigest()
+    duplicate = db.scalar(select(Document.id).where(Document.collection_id == collection_id,
+                                                    Document.checksum == checksum))
+    if duplicate:
+        raise DuplicateDocument(duplicate)
+    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    path = settings.upload_dir / f"{uuid.uuid4().hex}.{file_type}"
+    path.write_bytes(data)
+    display_name = re.split(r"[\\/]", filename)[-1][:255] or f"upload.{file_type}"
+    doc = Document(owner_id=owner_id, collection_id=collection_id, filename=display_name, file_type=file_type,
+                   size_bytes=len(data), checksum=checksum, storage_path=str(path))
+    db.add(doc)
+    try:
+        db.flush()  # the unique (collection, checksum) constraint is checked here
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return doc
 
 
 # ---------- 2. Extract + clean ----------
@@ -185,10 +215,12 @@ def overlap_tail(text: str, n: int) -> str:
     return tail[sentence_start.end():] if sentence_start else tail[tail.find(" ") + 1:]
 
 
-def chunk_blocks(blocks: list[Block], max_chars: int = MAX_CHARS, overlap: int = OVERLAP_CHARS) -> list[Chunk]:
+def chunk_blocks(blocks: list[Block], max_chars: int | None = None, overlap: int | None = None) -> list[Chunk]:
     """Pack paragraphs into chunks of up to max_chars. A new heading or a new page always starts
     a new chunk (so a chunk's page number is always right for citations); within one section,
-    each new chunk repeats the end of the previous one (overlap)."""
+    each new chunk repeats the end of the previous one (overlap). Defaults come from settings."""
+    max_chars = max_chars or settings.chunk_max_chars
+    overlap = settings.chunk_overlap_chars if overlap is None else overlap
     chunks: list[Chunk] = []
     current: Chunk | None = None
     for block in blocks:
@@ -255,7 +287,8 @@ def ingest_document(doc_id: int) -> None:
                 raise ValueError("No text could be extracted (scanned PDF? OCR isn't supported yet)")
 
             set_status(db, doc, "embedding")
-            vectors = embed_texts([DOC_PREFIX + c.content for c in chunks])
+            title = f"{Path(doc.filename).stem.replace('_', ' ')}\n" if settings.embed_with_title else ""
+            vectors = embed_texts([DOC_PREFIX + title + c.content for c in chunks])
 
             db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc.id))
             db.add_all(DocumentChunk(document_id=doc.id, chunk_index=i, page_number=c.page,

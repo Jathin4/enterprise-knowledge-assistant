@@ -1,0 +1,14 @@
+BRIGHTLINE ANALYTICS - DATA RETENTION POLICY
+Owner: Security and Legal. Effective 1 March 2026.
+
+1. Scope
+This policy defines how long Brightline Analytics keeps data and how it is deleted. It applies to all systems that store company or customer data.
+
+2. Retention periods
+Application logs are kept for 90 days. Security logs are kept for 12 months. Database backups are kept for 35 days. Customer data is deleted within 30 days after the customer's contract ends.
+
+3. Deletion requests
+Requests from individuals to delete their personal data must be completed within 30 days. The privacy team confirms completion to the requester in writing.
+
+4. Legal hold
+When the Legal team places a legal hold, deletion of the affected data is suspended until Legal releases the hold.

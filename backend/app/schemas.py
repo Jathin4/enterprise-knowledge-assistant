@@ -2,7 +2,7 @@
 storage_path) can never leak into a response by accident."""
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Token(BaseModel):
@@ -37,3 +37,36 @@ class DocumentOut(BaseModel):
     chunk_count: int
     created_at: datetime
     updated_at: datetime
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    conversation_id: int | None = None   # omit to start a new conversation
+    collection_id: int | None = None     # omit to search all of your collections
+
+
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    role: str
+    content: str
+    sources: list[dict]
+    abstained: bool
+    latency_ms: int | None
+    created_at: datetime
+
+
+class ChatResponse(BaseModel):
+    conversation_id: int
+    message: MessageOut
+
+
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    created_at: datetime
+
+
+class ConversationDetail(ConversationOut):
+    messages: list[MessageOut]

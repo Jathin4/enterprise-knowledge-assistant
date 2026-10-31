@@ -90,6 +90,17 @@ def test_embedding_failure_marks_document_failed(client, monkeypatch):
         assert db.scalar(select(func.count()).select_from(DocumentChunk)) == 0
 
 
+def test_title_is_embedded_but_not_stored(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ingestion, "embed_texts", lambda texts: seen.extend(texts) or [[0.1] * settings.embed_dim for _ in texts])
+    monkeypatch.setattr(settings, "embed_with_title", True)
+    alice = auth(client, "alice@example.com")
+    upload(client, alice, ENGINEERING, SAMPLES / "expense_policy.txt")
+    assert seen and all(t.startswith("search_document: expense policy\n") for t in seen)
+    with client.db() as db:
+        assert not any(c.startswith("expense policy") for c in db.scalars(select(DocumentChunk.content)))
+
+
 def test_pdf_without_text_fails_clearly(client):
     from pypdf import PdfWriter
     import io
