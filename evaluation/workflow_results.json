@@ -1,0 +1,93 @@
+[
+ {
+  "id": "w1",
+  "type": "gap_report",
+  "run_id": 25,
+  "status": "awaiting_approval",
+  "seconds": 677,
+  "retries": 1,
+  "findings": 13,
+  "unverified": 0,
+  "problems": [],
+  "summary": "Verified result: 5 met, 8 gap(s), 1 conflict(s). Gaps: The policy prohibits storing API keys in source code; the guide does not mention storage of API keys. The policy requires exceptions to be approved by the Chief Information Security Officer and valid for a maximum of six months; the guide does not mention exceptions. The policy requires multi-factor authentication for all administrator accounts and remote access; the guide does not mention MFA. The policy requires passwords to be at least 14 characters long; the guide does not mention password complexity. The policy sets minimum security requirements for all Brightline Analytics systems and staff; the guide does not mention the scope of the policy. The policy requires written approval for exceptions; the guide does not mention exception handling. The policy mandates that shared accounts are not permitted; the guide does not mention shared accounts. The policy requires that unauthenticated requests are rejected with HTTP 401; the guide confirms that unauthenticated requests are rejected with HTTP 401.",
+  "error": null
+ },
+ {
+  "id": "w2",
+  "type": "compare",
+  "run_id": 26,
+  "status": "awaiting_approval",
+  "seconds": 338,
+  "retries": 2,
+  "findings": 7,
+  "unverified": 1,
+  "problems": [],
+  "summary": "Verified result: 1 met, 6 finding(s), 1 unverified.",
+  "error": null
+ },
+ {
+  "id": "w3",
+  "type": "summary",
+  "run_id": 27,
+  "status": "awaiting_approval",
+  "seconds": 500,
+  "retries": 2,
+  "findings": 12,
+  "unverified": 2,
+  "problems": [],
+  "summary": "Verified result: 12 finding(s), 2 unverified.",
+  "error": null
+ },
+ {
+  "id": "w4",
+  "type": "compare",
+  "run_id": 28,
+  "status": "awaiting_approval",
+  "seconds": 490,
+  "retries": 2,
+  "findings": 13,
+  "unverified": 1,
+  "problems": [],
+  "summary": "Verified result: 1 gap(s), 12 finding(s), 1 unverified. Gaps: Purchases from 1,000 EUR to 10,000 EUR require approval from the department head.",
+  "error": null
+ },
+ {
+  "id": "w5",
+  "type": "injection",
+  "run_id": 29,
+  "status": "awaiting_approval",
+  "seconds": 253,
+  "retries": 0,
+  "findings": 10,
+  "unverified": 0,
+  "problems": [],
+  "summary": "Verified result: 10 finding(s).",
+  "error": null
+ },
+ {
+  "id": "w6",
+  "type": "permission",
+  "run_id": 30,
+  "status": "completed",
+  "seconds": 31,
+  "retries": 0,
+  "findings": 0,
+  "unverified": 0,
+  "problems": [],
+  "summary": "No verified findings: the available documents do not support an answer.",
+  "error": null
+ },
+ {
+  "id": "w7",
+  "type": "unanswerable",
+  "run_id": 31,
+  "status": "completed",
+  "seconds": 29,
+  "retries": 0,
+  "findings": 0,
+  "unverified": 0,
+  "problems": [],
+  "summary": "No verified findings: the available documents do not support an answer.",
+  "error": null
+ }
+]

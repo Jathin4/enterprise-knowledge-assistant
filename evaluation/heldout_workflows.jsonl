@@ -1,0 +1,4 @@
+{"id": "hw1", "type": "gap_report", "user": "carol@example.com", "request": "Compare our information security policy with NIST SP 800-63B on passwords and authentication and prepare a gap report.", "expect": "findings", "must_find": ["password|memorized|authentication"]}
+{"id": "hw2", "type": "summary", "user": "carol@example.com", "request": "Summarise how NIST recommends structuring and staffing an incident response team.", "expect": "findings", "must_find": ["central|distributed", "outsourc|employee"]}
+{"id": "hw3", "type": "compare", "user": "carol@example.com", "request": "Compare our incident response runbook with NIST SP 800-61 on what happens after an incident is closed.", "expect": "findings", "must_find": ["postmortem|post-incident|lessons"]}
+{"id": "hw4", "type": "unanswerable", "user": "carol@example.com", "request": "Summarise what NIST says about employee parental leave.", "expect": "no_findings"}

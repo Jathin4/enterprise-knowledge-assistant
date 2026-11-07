@@ -58,6 +58,7 @@ class Document(Base):
     error: Mapped[str | None]
     page_count: Mapped[int | None]
     chunk_count: Mapped[int] = mapped_column(default=0)
+    quarantined_chunks: Mapped[int] = mapped_column(default=0, server_default="0")   # suspected prompt injection
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -130,6 +131,64 @@ class EvaluationRun(Base):
     duration_s: Mapped[float | None]
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+RUN_STATUSES = ("queued", "running", "awaiting_approval", "approved", "rejected", "completed", "failed")
+
+
+class WorkflowRun(Base):
+    """One agent workflow. The detailed graph state lives in LangGraph's checkpoint tables;
+    this row is what the API, permissions and UI use."""
+    __tablename__ = "workflow_runs"
+    __table_args__ = (CheckConstraint(f"status IN {RUN_STATUSES}", name="ck_workflow_runs_status"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    request: Mapped[str]
+    # Fixed in code when the run starts. Every search also re-checks the user's current membership.
+    collection_ids: Mapped[list] = mapped_column(JSONB)
+    task_type: Mapped[str | None] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
+    current_step: Mapped[str | None] = mapped_column(String(30))
+    report: Mapped[dict | None] = mapped_column(JSONB)
+    error: Mapped[str | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    finished_at: Mapped[datetime | None]
+
+    events: Mapped[list["WorkflowEvent"]] = relationship(
+        order_by="WorkflowEvent.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+    approval: Mapped["ApprovalRequest | None"] = relationship(
+        back_populates="run", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class WorkflowEvent(Base):
+    """Progress log of a run. Saved so a reconnecting browser can replay what it missed."""
+    __tablename__ = "workflow_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("workflow_runs.id", ondelete="CASCADE"), index=True)
+    step: Mapped[str] = mapped_column(String(30))
+    message: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ApprovalRequest(Base):
+    __tablename__ = "approval_requests"
+    __table_args__ = (CheckConstraint("decision IN ('approved', 'rejected')", name="ck_approval_requests_decision"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("workflow_runs.id", ondelete="CASCADE"), unique=True)
+    requested_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    decision: Mapped[str | None] = mapped_column(String(10))
+    comment: Mapped[str | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    decided_at: Mapped[datetime | None]
+
+    run: Mapped[WorkflowRun] = relationship(back_populates="approval")
 
 
 class AuditEvent(Base):

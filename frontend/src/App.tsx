@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, hasToken, setToken, setUnauthorizedHandler, type User } from "./api";
+import Agents from "./Agents";
 import Chat from "./Chat";
 import Documents from "./Documents";
 import Evaluation from "./Evaluation";
 import Login from "./Login";
 
-type Tab = "chat" | "documents" | "evaluation";
-const LABELS: Record<Tab, string> = { chat: "Chat", documents: "Documents", evaluation: "Evaluation" };
+type Tab = "chat" | "documents" | "agents" | "evaluation";
+const LABELS: Record<Tab, string> = { chat: "Chat", documents: "Documents", agents: "Agents", evaluation: "Evaluation" };
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,7 +27,7 @@ export default function App() {
       <header className="topbar">
         <strong>Knowledge Assistant</strong>
         <nav className="tabs" aria-label="Sections">
-          {(user.role === "admin" ? ["chat", "documents", "evaluation"] as const : ["chat", "documents"] as const).map((t) => (
+          {(user.role === "admin" ? ["chat", "documents", "agents", "evaluation"] as const : ["chat", "documents", "agents"] as const).map((t) => (
             <button key={t} className={tab === t ? "tab active" : "tab"} aria-current={tab === t}
                     onClick={() => setTab(t)}>
               {LABELS[t]}
@@ -37,7 +38,8 @@ export default function App() {
         <button className="ghost" onClick={() => { setToken(null); setUser(null); }}>Log out</button>
       </header>
       <main className="content">
-        {tab === "chat" ? <Chat /> : tab === "documents" ? <Documents user={user} /> : <Evaluation />}
+        {tab === "chat" ? <Chat /> : tab === "documents" ? <Documents user={user} />
+          : tab === "agents" ? <Agents user={user} /> : <Evaluation />}
       </main>
     </div>
   );

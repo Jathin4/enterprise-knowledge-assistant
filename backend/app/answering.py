@@ -7,11 +7,12 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 import httpx
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import User
-from app.retrieval import Hit, retrieve
+from app.retrieval import Hit, retrieve, with_neighbours
 
 log = logging.getLogger(__name__)
 
@@ -86,6 +87,14 @@ def generate(messages: list[dict]) -> str:
     return r.json()["message"]["content"]
 
 
+def generate_json(prompt: str, schema: type[BaseModel]) -> BaseModel:
+    """Ask for JSON in a given shape: Ollama constrains the output, Pydantic validates it."""
+    payload = _payload([{"role": "user", "content": prompt}], False) | {"format": schema.model_json_schema()}
+    r = httpx.post(f"{settings.ollama_url}/api/chat", json=payload, timeout=900)
+    r.raise_for_status()
+    return schema.model_validate_json(r.json()["message"]["content"])
+
+
 def stream_tokens(messages: list[dict]) -> Iterator[str]:
     with httpx.stream("POST", f"{settings.ollama_url}/api/chat", json=_payload(messages, True),
                       timeout=httpx.Timeout(900, connect=10)) as r:
@@ -123,18 +132,28 @@ def finalize(raw: str, hits: list[Hit]) -> Answer:
 
 # ---------- The whole flow ----------
 
-def relevant_hits(db: Session, user: User, question: str, collection_id: int | None = None) -> tuple[list[Hit], list[Hit], int]:
-    """(all retrieved, those close enough to use, retrieval time in ms)."""
-    start = time.perf_counter()
-    hits = retrieve(db, user, question, collection_id=collection_id)
-    elapsed = int((time.perf_counter() - start) * 1000)
+def usable_hits(hits: list[Hit]) -> list[Hit]:
+    """Keep passages close enough to the question; drop any that try to instruct the AI."""
     usable = []
     for h in hits:
         if INJECTION.search(h.content):
             log.warning("Dropped chunk %s of %s: looks like a prompt-injection attempt", h.chunk_id, h.filename)
         elif h.distance <= settings.max_distance:
             usable.append(h)
-    return hits, usable, elapsed
+    return usable
+
+
+def relevant_hits(db: Session, user: User, question: str, collection_id: int | None = None) -> tuple[list[Hit], list[Hit], int]:
+    """(all retrieved, those close enough to use, retrieval time in ms)."""
+    start = time.perf_counter()
+    hits = retrieve(db, user, question, collection_id=collection_id)
+    elapsed = int((time.perf_counter() - start) * 1000)
+    return hits, with_safe_neighbours(db, usable_hits(hits)), elapsed
+
+
+def with_safe_neighbours(db: Session, hits: list[Hit]) -> list[Hit]:
+    """Attach each passage's follower, unless the follower tries to instruct the AI."""
+    return with_neighbours(db, hits, allow=lambda text: not INJECTION.search(text))
 
 
 def answer_stream(db: Session, user: User, question: str, collection_id: int | None = None) -> Iterator[dict]:

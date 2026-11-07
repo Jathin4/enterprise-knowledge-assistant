@@ -6,7 +6,7 @@ export type DocStatus = "queued" | "extracting" | "embedding" | "ready" | "faile
 export type DocumentOut = {
   id: number; collection_id: number; owner_id: number; filename: string; file_type: string;
   size_bytes: number; status: DocStatus; error: string | null; page_count: number | null;
-  chunk_count: number; created_at: string; updated_at: string;
+  chunk_count: number; quarantined_chunks: number; created_at: string; updated_at: string;
 };
 export type Source = {
   n: number; chunk_id: number; document_id: number; filename: string;
@@ -33,6 +33,27 @@ export type EvalResult = {
   cited_gold?: boolean; grounded?: string; judge_reason?: string; generation_ms?: number;
 };
 export type EvalDetail = EvalSummary & { results: EvalResult[] };
+
+export type RunStatus = "queued" | "running" | "awaiting_approval" | "approved" | "rejected" | "completed" | "failed";
+export type RunSummary = {
+  id: number; user_id: number; request: string; task_type: string | null; status: RunStatus;
+  current_step: string | null; error: string | null; created_at: string; finished_at: string | null;
+};
+export type Claim = { text: string; category: "gap" | "met" | "conflict" | "finding"; sources: number[]; status: string; reason: string };
+export type ReportSource = { n: number; filename: string; page: number | null; heading: string | null; snippet: string };
+export type WorkflowReport = {
+  request: string; task_type: string | null; summary: string; findings: Claim[]; conflicts: Claim[];
+  unsupported: Claim[]; out_of_scope?: Claim[]; off_topic?: Claim[]; limitations: string[]; retries: number; sources: ReportSource[];
+  coverage?: { sections_total: number; sections_examined: number; not_examined: string[]; passages_retrieved: number; passages_used: number; claim_limit_reached: boolean } | null;
+};
+export type RunEvent = { id: number; step: string; message: string; created_at: string };
+export type RunDetail = RunSummary & {
+  collection_ids: number[]; report: WorkflowReport | null; events: RunEvent[]; can_review: boolean;
+  approval: { id: number; decision: string | null; comment: string | null; decided_by: number | null; decided_at: string | null } | null;
+};
+export type WorkflowStreamEvent =
+  | { type: "event"; id: number; step: string; message: string }
+  | { type: "status"; status: RunStatus };
 
 export type StreamEvent =
   | { type: "start"; conversation_id: number }
@@ -98,6 +119,18 @@ export const api = {
   conversations: () => request<Conversation[]>("/api/conversations"),
   conversation: (id: number) => request<ConversationDetail>(`/api/conversations/${id}`),
   deleteConversation: (id: number) => request<void>(`/api/conversations/${id}`, { method: "DELETE" }),
+  runs: () => request<RunSummary[]>("/api/workflows"),
+  run: (id: number) => request<RunDetail>(`/api/workflows/${id}`),
+  approvals: () => request<RunSummary[]>("/api/approvals"),
+  startReport: (text: string, collectionId: number | null) => request<RunSummary>("/api/reports", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ request: text, collection_id: collectionId }),
+  }),
+  retryRun: (id: number) => request<RunSummary>(`/api/workflows/${id}/retry`, { method: "POST" }),
+  decide: (id: number, decision: "approved" | "rejected", comment: string) => request<RunSummary>(`/api/approvals/${id}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision, comment: comment.trim() || null }),
+  }),
   evaluations: () => request<EvalSummary[]>("/api/evaluations"),
   evaluation: (id: number) => request<EvalDetail>(`/api/evaluations/${id}`),
   startEvaluation: (mode: EvalMode, label: string) => request<EvalSummary>("/api/evaluations", {
@@ -117,8 +150,18 @@ export async function streamChat(
     body: JSON.stringify(body), signal,
   });
   if (!res.ok || !res.body) return fail(res);
+  await readEvents(res.body, onEvent);
+}
 
-  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+/** Follow a workflow's progress. Saved events are replayed, so `after` makes reconnecting lossless. */
+export async function streamWorkflow(id: number, after: number, onEvent: (e: WorkflowStreamEvent) => void, signal?: AbortSignal) {
+  const res = await fetch(`/api/workflows/${id}/events?after=${after}`, { headers: authHeaders(), signal });
+  if (!res.ok || !res.body) return fail(res);
+  await readEvents(res.body, onEvent);
+}
+
+async function readEvents<T>(body: ReadableStream<Uint8Array<ArrayBuffer>>, onEvent: (e: T) => void) {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
   for (;;) {
     const { value, done } = await reader.read();

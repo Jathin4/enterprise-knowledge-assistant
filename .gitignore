@@ -6,3 +6,4 @@ node_modules/
 storage/
 .pytest_cache/
 frontend/dist/
+*.tsbuildinfo

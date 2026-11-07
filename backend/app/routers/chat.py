@@ -83,7 +83,9 @@ def chat_stream(req: ChatRequest, user: User = Depends(get_current_user), db: Se
     start → sources → token… → done (the checked answer with its citations) or error."""
     if req.conversation_id is not None:
         own_conversation(db, user, req.conversation_id)  # clean 404 before streaming starts
-    return StreamingResponse(stream_events(user.id, req), media_type="text/event-stream",
+    user_id = user.id
+    db.close()   # don't hold the request's transaction open for the whole stream (see routers/workflows.py)
+    return StreamingResponse(stream_events(user_id, req), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 

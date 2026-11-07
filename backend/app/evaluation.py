@@ -14,17 +14,18 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Literal
 
-import httpx
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.answering import REMINDER, SYSTEM_PROMPT, answer_question
+from app.answering import REMINDER, SYSTEM_PROMPT, answer_question, generate_json
 from app.config import PROJECT_DIR, settings
 from app.models import DocumentChunk, EvaluationRun, User
 from app.retrieval import retrieve
 
 QUESTIONS = PROJECT_DIR / "evaluation" / "questions.jsonl"
+# Written before any measurement on real public documents, and never used for tuning.
+HELDOUT_QUESTIONS = PROJECT_DIR / "evaluation" / "heldout_questions.jsonl"
 
 JUDGE_PROMPT = """You check whether an answer is supported by its sources.
 
@@ -49,8 +50,8 @@ class Verdict(BaseModel):
     reason: str
 
 
-def load_questions() -> list[dict]:
-    return [json.loads(line) for line in QUESTIONS.read_text(encoding="utf-8").splitlines() if line.strip()]
+def load_questions(path=QUESTIONS) -> list[dict]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def missing_patterns(text: str, patterns: list[str]) -> list[str]:
@@ -59,15 +60,7 @@ def missing_patterns(text: str, patterns: list[str]) -> list[str]:
 
 def judge(answer: str, sources: list[str]) -> Verdict:
     """An LLM judge (the same local model, so expect some leniency: it is a signal, not proof)."""
-    prompt = JUDGE_PROMPT.format(sources="\n\n".join(sources), answer=answer)
-    r = httpx.post(f"{settings.ollama_url}/api/chat", timeout=900, json={
-        "model": settings.chat_model, "stream": False, "think": False,
-        "messages": [{"role": "user", "content": prompt}],
-        "format": Verdict.model_json_schema(),
-        "options": {"temperature": 0, "num_ctx": settings.num_ctx},
-    })
-    r.raise_for_status()
-    return Verdict.model_validate_json(r.json()["message"]["content"])
+    return generate_json(JUDGE_PROMPT.format(sources="\n\n".join(sources), answer=answer), Verdict)
 
 
 def evaluate_question(db: Session, user: User, q: dict, mode: str) -> dict:
@@ -77,7 +70,10 @@ def evaluate_question(db: Session, user: User, q: dict, mode: str) -> dict:
     start = time.perf_counter()
     hits = retrieve(db, user, q["question"])
     row["retrieval_ms"] = round((time.perf_counter() - start) * 1000)
-    ranks = [i for i, h in enumerate(hits, start=1) if (h.filename, h.heading) in gold]
+    # Real long documents are matched on the text itself; section names there are less reliable.
+    gold_text = q.get("gold_text")
+    ranks = [i for i, h in enumerate(hits, start=1)
+             if (h.filename, h.heading) in gold or (gold_text and re.search(gold_text, h.content, re.I))]
     row["gold_rank"] = ranks[0] if ranks else None
     row["best_distance"] = round(hits[0].distance, 4) if hits else None
     row["gate_refuses"] = not hits or hits[0].distance > settings.max_distance
@@ -92,7 +88,10 @@ def evaluate_question(db: Session, user: User, q: dict, mode: str) -> dict:
     if not a.abstained:
         row["missing"] = missing_patterns(a.text, q.get("must_include", []))
         row["forbidden"] = [p for p in q.get("must_not_include", []) if re.search(p, a.text, re.I)]
-        row["cited_gold"] = any(tuple(c) in gold for c in row["cited"])
+        # Held-out questions identify the right passage by its text, not its section name.
+        cited_text = " ".join(a.retrieved[s["n"] - 1].content for s in a.sources)
+        row["cited_gold"] = any(tuple(c) in gold for c in row["cited"]) or bool(
+            q.get("gold_text") and re.search(q["gold_text"], cited_text, re.I))
         # Cited numbers index the retrieved list (usable passages are its closest prefix).
         # Keep the [n] labels so the judge can match each citation in the answer to its source.
         sources = [f"[{s['n']}] {a.retrieved[s['n'] - 1].content}" for s in a.sources]
@@ -167,12 +166,33 @@ def current_config(db: Session) -> dict:
             "prompt_sha": hashlib.sha256((SYSTEM_PROMPT + REMINDER).encode()).hexdigest()[:8]}
 
 
+def check_workflow(task: dict, status: str, report: dict | None) -> list[str]:
+    """Compare a finished workflow with what its benchmark task expects. Returns the problems."""
+    if status not in ("awaiting_approval", "completed"):
+        return [f"ended with status {status}"]
+    report = report or {}
+    findings = report.get("findings", []) + report.get("conflicts", [])
+    all_text = " ".join(c["text"] for c in findings)
+    in_category = lambda name: " ".join(c["text"] for c in findings if c["category"] == name)
+    problems = []
+    if (task["expect"] == "findings") != bool(findings):
+        problems.append(f"expected {task['expect']}, got {len(findings)} finding(s)")
+    problems += [f"missing: {p}" for p in missing_patterns(all_text, task.get("must_find", []))]
+    problems += [f"not reported as a gap: {p}" for p in missing_patterns(in_category("gap"), task.get("must_be_gap", []))]
+    problems += [f"not reported as met: {p}" for p in missing_patterns(in_category("met"), task.get("must_be_met", []))]
+    problems += [f"wrongly reported as a gap: {p}" for p in task.get("must_not_be_gap", []) if re.search(p, in_category("gap"), re.I)]
+    # Forbidden text must not appear anywhere in the report, including its unverified section.
+    everything = all_text + " " + report.get("summary", "") + " " + " ".join(c["text"] for c in report.get("unsupported", []))
+    problems += [f"contains forbidden text: {p}" for p in task.get("must_not_find", []) if re.search(p, everything, re.I)]
+    return problems
+
+
 def run_evaluation(db: Session, run: EvaluationRun, on_progress: Callable[[int, int, dict], None] | None = None,
-                   types: set[str] | None = None) -> None:
+                   types: set[str] | None = None, path=QUESTIONS) -> None:
     """Fill in an already-saved EvaluationRun, committing progress after each question.
-    `types` limits the run to some question types (a quick check, not a comparable full result)."""
+    `types` limits the run to some question types or ids (a quick check, not a comparable full result)."""
     start = time.perf_counter()
-    questions = [q for q in load_questions() if not types or q["type"] in types]
+    questions = [q for q in load_questions(path) if not types or q["type"] in types or q["id"] in types]
     users = {u.email: u for u in db.scalars(select(User))}
     run.total, run.config, rows = len(questions), current_config(db), []
     try:

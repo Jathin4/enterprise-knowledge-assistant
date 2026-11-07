@@ -8,7 +8,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from app import db as dbmod
-from app import ingestion
+from app import ingestion, workflows
+
+REAL_CHECK_FOR_ATTACK = ingestion.check_for_attack
 from app.config import settings
 from app.db import Base
 from app.models import Collection, CollectionMember, User
@@ -50,16 +52,19 @@ def client(engine, monkeypatch, tmp_path):
     monkeypatch.setattr(dbmod, "SessionLocal", session_factory)
     monkeypatch.setattr(settings, "upload_dir", tmp_path)
     monkeypatch.setattr(ingestion, "embed_texts", fake_embed)
+    monkeypatch.setattr(ingestion, "check_for_attack", lambda text: ("attack the ai" in text.lower(), "Test rule."))
+    monkeypatch.setattr(workflows, "prepare", lambda: None)   # tests install their own in-memory graph
 
-    with session_factory() as db:  # alice in Engineering, bob in Finance, plus an admin
+    with session_factory() as db:  # alice in Engineering, bob in Finance, carol reviews Engineering, plus an admin
         eng, fin = Collection(name="Engineering"), Collection(name="Finance")
         users = [User(email=e, password_hash=hash_password(PASSWORD), role=r)
                  for e, r in (("alice@example.com", "employee"), ("bob@example.com", "employee"),
-                              ("admin@example.com", "admin"))]
+                              ("admin@example.com", "admin"), ("carol@example.com", "analyst"))]
         db.add_all([eng, fin, *users])
         db.flush()
         db.add_all([CollectionMember(collection_id=eng.id, user_id=users[0].id),
-                    CollectionMember(collection_id=fin.id, user_id=users[1].id)])
+                    CollectionMember(collection_id=fin.id, user_id=users[1].id),
+                    CollectionMember(collection_id=eng.id, user_id=users[3].id)])
         db.commit()
 
     from app.main import app

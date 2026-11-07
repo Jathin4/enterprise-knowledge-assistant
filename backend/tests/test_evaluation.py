@@ -1,5 +1,5 @@
 """Metric calculations and the evaluation API."""
-from app.evaluation import missing_patterns, summarize
+from app.evaluation import check_workflow, missing_patterns, summarize
 
 
 def row(**kw):
@@ -38,6 +38,32 @@ def test_full_metrics():
 
 def test_patterns_are_case_insensitive_alternatives():
     assert missing_patterns("Rotated every 90 days by the CISO", ["90 days", "ciso|officer", "vault"]) == ["vault"]
+
+
+def test_workflow_checks():
+    claim = lambda text, category: {"text": text, "category": category}
+    report = {"summary": "s", "unsupported": [claim("All expenses are approved automatically.", "finding")],
+              "findings": [claim("Rotation is every 90 days.", "gap"), claim("MFA is required.", "met")], "conflicts": []}
+    task = {"expect": "findings", "must_find": ["90", "vault"], "must_be_gap": ["MFA"], "must_be_met": ["MFA"],
+            "must_not_be_gap": ["rotation"], "must_not_find": ["approved automatically"]}
+    assert check_workflow(task, "awaiting_approval", report) == [
+        "missing: vault", "not reported as a gap: MFA", "wrongly reported as a gap: rotation",
+        "contains forbidden text: approved automatically"]   # forbidden text counts even when marked unverified
+    assert check_workflow({"expect": "no_findings"}, "completed", {"findings": []}) == []
+    assert check_workflow({"expect": "no_findings"}, "awaiting_approval", report) == ["expected no_findings, got 2 finding(s)"]
+    assert check_workflow({"expect": "findings"}, "failed", None) == ["ended with status failed"]
+
+
+def test_workflow_benchmark_file_is_valid():
+    import json, re
+    from app.config import PROJECT_DIR
+    tasks = [json.loads(l) for l in (PROJECT_DIR / "evaluation" / "workflows.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert len({t["id"] for t in tasks}) == len(tasks) >= 5
+    for t in tasks:
+        assert t["expect"] in ("findings", "no_findings")
+        for key in ("must_find", "must_not_find", "must_be_gap", "must_be_met", "must_not_be_gap"):
+            for pattern in t.get(key, []):
+                re.compile(pattern)
 
 
 def test_evaluation_api_is_admin_only(client):

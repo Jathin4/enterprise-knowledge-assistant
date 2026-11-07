@@ -36,6 +36,10 @@ button.wide { width: 100%; }
 /* login */
 .login { width: min(380px, 100%); display: grid; gap: 14px; }
 .login p { margin: 0; }
+.password-field { position: relative; display: block; }
+.password-field input { width: 100%; padding-right: 42px; font-family: inherit; }
+.eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: none; background: transparent; padding: 6px 8px; color: var(--muted); display: grid; place-items: center; }
+.eye:hover { color: var(--text); }
 
 /* layout */
 .app { height: 100%; display: flex; flex-direction: column; }
@@ -88,6 +92,29 @@ blockquote { margin: 4px 0 8px 28px; padding: 8px 12px; border-left: 3px solid v
 .composer { display: flex; gap: 8px; align-items: end; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface); max-width: 860px; width: 100%; margin: 0 auto; }
 .composer textarea { flex: 1; resize: vertical; min-height: 44px; }
 .composer select { max-width: 180px; }
+
+/* agents */
+.agents { max-width: 1100px; }
+.agents h3 { font-size: 14.5px; margin: 18px 0 8px; }
+.agents textarea { width: 100%; resize: vertical; }
+.agents form { display: grid; gap: 10px; }
+.agents form p { margin: 0; }
+.runs ul { grid-template-columns: minmax(0, 1fr); }
+.run-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run .pill { flex: none; }
+.steps-bar { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0; padding: 0; }
+.steps-bar li { flex: 1 1 100px; text-align: center; font-size: 12.5px; padding: 6px 4px; border-radius: 8px; background: var(--surface-2); color: var(--muted); }
+.steps-bar li.reached { background: var(--ok-soft); color: var(--ok); font-weight: 700; }
+.steps-bar li.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.events { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13.5px; }
+.pill.awaiting_approval, .pill.running { background: var(--accent-soft); color: var(--accent); }
+.pill.approved, .pill.cat-met { background: var(--ok-soft); color: var(--ok); }
+.pill.rejected, .pill.cat-gap { background: var(--danger-soft); color: var(--danger); }
+.pill.cat-conflict { background: var(--warn-soft); color: var(--warn); }
+.unverified { border: 1px dashed var(--warn); border-radius: 12px; padding: 4px 14px 12px; margin-top: 16px; }
+.limits { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--muted); }
+.nowrap { white-space: nowrap; }
+.actions { justify-content: flex-start; margin-top: 10px; }
 
 /* evaluation */
 .eval { max-width: 1300px; }

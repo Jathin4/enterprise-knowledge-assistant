@@ -1,0 +1,59 @@
+[
+ {
+  "id": "hw1",
+  "type": "gap_report",
+  "run_id": 21,
+  "status": "awaiting_approval",
+  "seconds": 1464,
+  "retries": 2,
+  "findings": 8,
+  "unverified": 3,
+  "problems": [],
+  "summary": "Verified result: 8 met, 3 conflict(s), 3 unverified.",
+  "error": null
+ },
+ {
+  "id": "hw2",
+  "type": "summary",
+  "run_id": 22,
+  "status": "awaiting_approval",
+  "seconds": 714,
+  "retries": 2,
+  "findings": 13,
+  "unverified": 1,
+  "problems": [
+   "missing: central|distributed",
+   "missing: outsourc|employee"
+  ],
+  "summary": "Verified result: 1 gap(s), 12 finding(s), 1 unverified. Gaps: NIST recommends that incident response staff should be available 24/7 to ensure real-time availability for incident response.",
+  "error": null
+ },
+ {
+  "id": "hw3",
+  "type": "compare",
+  "run_id": 23,
+  "status": "awaiting_approval",
+  "seconds": 921,
+  "retries": 2,
+  "findings": 12,
+  "unverified": 2,
+  "problems": [
+   "missing: postmortem|post-incident|lessons"
+  ],
+  "summary": "Verified result: 1 gap(s), 11 finding(s), 2 unverified. Gaps: NIST SP 800-61 recommends that incident response procedures should cover all phases of the incident response process, including containment, eradication, and recovery.",
+  "error": null
+ },
+ {
+  "id": "hw4",
+  "type": "unanswerable",
+  "run_id": 24,
+  "status": "completed",
+  "seconds": 63,
+  "retries": 0,
+  "findings": 0,
+  "unverified": 0,
+  "problems": [],
+  "summary": "No verified findings: the available documents do not support an answer.",
+  "error": null
+ }
+]

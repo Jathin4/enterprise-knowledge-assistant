@@ -97,7 +97,7 @@ export default function Documents({ user }: { user: User }) {
                       {d.error && <div className="error small">{d.error}</div>}
                     </td>
                     <td>{d.page_count ?? "–"}</td>
-                    <td>{d.chunk_count || "–"}</td>
+                    <td>{d.chunk_count || "–"}{d.quarantined_chunks > 0 && <span className="pill failed" title="Passages that tried to instruct the AI were not indexed. Details are in the audit log."> {d.quarantined_chunks} quarantined</span>}</td>
                     <td>{size(d.size_bytes)}</td>
                     <td>{new Date(d.created_at).toLocaleString()}</td>
                     <td>

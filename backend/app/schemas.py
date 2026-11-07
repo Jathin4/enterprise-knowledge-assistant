@@ -35,6 +35,7 @@ class DocumentOut(BaseModel):
     error: str | None
     page_count: int | None
     chunk_count: int
+    quarantined_chunks: int
     created_at: datetime
     updated_at: datetime
 
