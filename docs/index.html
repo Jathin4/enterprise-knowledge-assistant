@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise AI Knowledge Assistant</title>
+<meta name="description" content="A private, fully local AI assistant that answers from company documents with a citation for every sentence. Verified agent reports, human approval, honest evaluation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #000;
+  --panel: #0b0b14;
+  --line: #24243a;
+  --text: #fff;
+  --muted: #b9b9cc;
+  --pink: #ff4fd8;
+  --lilac: #c9a6ff;
+  --violet: #7b5cff;
+  --blue: #4f7bff;
+  --grad: linear-gradient(90deg, var(--pink), var(--lilac) 55%, var(--violet));
+  --radius: 18px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif; line-height: 1.6;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+.wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+
+/* ---------- Navigation ---------- */
+nav { position: sticky; top: 0; z-index: 10; background: rgba(0,0,0,.72); backdrop-filter: blur(12px); }
+nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 76px; gap: 24px; }
+.logo { font-size: 21px; font-weight: 500; letter-spacing: .2px; white-space: nowrap; }
+.logo b { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 600; }
+.links { display: flex; gap: 34px; font-size: 15px; color: #e8e8f2; }
+.links a:hover { color: var(--lilac); }
+.icon-link { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 50%; }
+.icon-link:hover { background: #17172a; }
+
+/* ---------- Hero ---------- */
+.hero { position: relative; text-align: center; padding: 110px 0 0; }
+.hero h1 { font-size: clamp(42px, 7vw, 76px); line-height: 1.08; margin: 0; font-weight: 600; letter-spacing: -1.5px; }
+.grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero p.lead { max-width: 640px; margin: 26px auto 0; color: #e4e4ef; font-size: 18px; letter-spacing: .2px; }
+.buttons { display: flex; gap: 14px; justify-content: center; margin-top: 38px; flex-wrap: wrap; }
+.btn {
+  position: relative; display: inline-flex; align-items: center; gap: 10px; padding: 15px 28px; border-radius: 999px;
+  font-size: 17px; font-weight: 500; letter-spacing: .3px; border: 1.5px solid #fff; background: #000; transition: transform .15s, box-shadow .2s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn.glow { border-color: transparent; background: linear-gradient(#000, #000) padding-box, var(--grad) border-box; box-shadow: 0 0 26px rgba(255,79,216,.25); }
+.btn.glow:hover { box-shadow: 0 0 36px rgba(255,79,216,.45); }
+
+.stage { position: relative; height: 430px; margin-top: 40px; }
+.stage img { position: relative; z-index: 2; width: min(1000px, 100%); height: 100%; object-fit: contain; object-position: bottom; }
+/* CSS stand-in glow, shown behind the artwork (or alone when there is no artwork) */
+.orb { position: absolute; border-radius: 50%; filter: blur(.3px); }
+.halo { position: absolute; left: 50%; bottom: -160px; width: 900px; height: 520px; transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(123,92,255,.55), rgba(255,79,216,.18) 55%, transparent 75%); filter: blur(10px); }
+.ring { position: absolute; left: 50%; bottom: 30px; width: 380px; height: 380px; transform: translateX(-50%); border-radius: 50%;
+  background: conic-gradient(from 210deg, var(--pink), var(--violet), var(--blue), var(--lilac), var(--pink));
+  -webkit-mask: radial-gradient(farthest-side, transparent 86%, #000 87%); mask: radial-gradient(farthest-side, transparent 86%, #000 87%);
+  box-shadow: 0 0 80px rgba(123,92,255,.6); animation: spin 18s linear infinite; }
+.ring.inner { width: 250px; height: 250px; bottom: 95px; animation-direction: reverse; animation-duration: 24s; opacity: .8; }
+.o1 { width: 30px; height: 30px; left: 9%; top: 18%; background: radial-gradient(circle at 35% 35%, #d77bff, #7a1fd1); box-shadow: 0 0 24px #a43ff0; animation: float 6s ease-in-out infinite; }
+.o2 { width: 56px; height: 56px; right: 10%; top: 34%; background: radial-gradient(circle at 35% 35%, #8fb0ff, #3b4fe0); box-shadow: 0 0 34px #4f7bff; animation: float 7s ease-in-out infinite -2s; }
+.o3 { width: 13px; height: 13px; right: 23%; top: 10%; background: #9b3cff; box-shadow: 0 0 14px #9b3cff; animation: float 5s ease-in-out infinite -1s; }
+.o4 { width: 15px; height: 15px; left: 31%; top: 46%; background: #8b2bdc; box-shadow: 0 0 14px #8b2bdc; animation: float 6.5s ease-in-out infinite -3s; }
+.has-art .ring { display: none; }
+@keyframes spin { to { transform: translateX(-50%) rotate(360deg); } }
+@keyframes float { 50% { transform: translateY(-14px); } }
+@media (prefers-reduced-motion: reduce) { .ring, .orb { animation: none; } }
+
+/* ---------- Sections ---------- */
+section { padding: 110px 0 0; }
+.eyebrow { color: var(--lilac); font-size: 14px; letter-spacing: 2.5px; text-transform: uppercase; text-align: center; margin: 0; }
+h2 { font-size: clamp(30px, 4.5vw, 46px); line-height: 1.15; text-align: center; margin: 12px 0 0; font-weight: 600; letter-spacing: -.8px; }
+.sub { text-align: center; color: var(--muted); max-width: 640px; margin: 16px auto 0; font-size: 17px; }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 54px; }
+.card { background: linear-gradient(180deg, #0f0f1c, #07070d); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; transition: border-color .2s, transform .2s; }
+.card:hover { border-color: #4a3b8f; transform: translateY(-3px); }
+.card .ic { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; font-size: 22px;
+  background: linear-gradient(135deg, rgba(255,79,216,.18), rgba(123,92,255,.22)); border: 1px solid #3a2c6e; }
+.card h3 { margin: 18px 0 8px; font-size: 20px; font-weight: 600; }
+.card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+/* How it works */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 54px; counter-reset: step; }
+.step { position: relative; padding: 26px 22px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); }
+.step::before { counter-increment: step; content: "0" counter(step); font-size: 34px; font-weight: 700; line-height: 1;
+  background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.step h3 { margin: 14px 0 6px; font-size: 18px; }
+.step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* Screens */
+.screens { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; margin-top: 54px; }
+.shot { margin: 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: #0d0d16; }
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { padding: 14px 18px; color: var(--muted); font-size: 14.5px; border-top: 1px solid var(--line); }
+.shot.tall { grid-row: span 2; }
+
+/* Results */
+.results { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 54px; }
+.res { border-radius: var(--radius); padding: 30px; border: 1px solid var(--line); background: var(--panel); }
+.res.honest { background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--grad) border-box; border: 1.5px solid transparent; }
+.res h3 { margin: 0 0 4px; font-size: 20px; }
+.res .note { color: var(--muted); font-size: 14.5px; margin: 0 0 18px; }
+.res dl { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; margin: 0; }
+.res dt { color: #dcdcea; }
+.res dd { margin: 0; font-weight: 600; text-align: right; }
+.res dd.good { color: #7ef0b7; } .res dd.warn { color: #ffb36b; }
+.callout { margin-top: 18px; padding: 22px 26px; border-radius: var(--radius); border: 1px solid #3a2c6e; background: rgba(123,92,255,.08); color: #e2dcff; }
+
+/* Demo */
+.video { margin: 54px auto 0; max-width: 960px; border-radius: 22px; overflow: hidden; border: 1px solid #3a2c6e; box-shadow: 0 0 80px rgba(123,92,255,.25); background: #000; }
+.video video { display: block; width: 100%; height: auto; }
+
+/* Stack + footer */
+.stack { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 34px; }
+.stack span { border: 1px solid #4b4b78; border-radius: 999px; padding: 9px 18px; color: #e6e6ff; font-size: 15px; }
+.cta { text-align: center; padding: 120px 0 90px; }
+footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: #8d8da6; font-size: 14px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+footer a { color: #c4c4dd; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Small screens ---------- */
+@media (max-width: 900px) {
+  .links { display: none; }
+  .grid { grid-template-columns: 1fr 1fr; }
+  .steps { grid-template-columns: 1fr 1fr; }
+  .screens, .results { grid-template-columns: 1fr; }
+  .shot.tall { grid-row: auto; }
+  .stage { height: 300px; }
+  .ring { width: 260px; height: 260px; } .ring.inner { width: 170px; height: 170px; bottom: 75px; }
+}
+@media (max-width: 560px) {
+  .hero { padding-top: 70px; }
+  .grid, .steps { grid-template-columns: 1fr; }
+  .btn { padding: 13px 22px; font-size: 16px; }
+  section { padding-top: 80px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#top">Knowledge <b>Assistant</b></a>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#screens">Screens</a>
+      <a href="#results">Results</a>
+      <a href="#demo">Demo</a>
+    </div>
+    <a class="icon-link" href="https://github.com/Jathin4/enterprise-knowledge-assistant" aria-label="View the code on GitHub">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <h1><span class="grad">Private AI.</span><br>Answers you can check.</h1>
+    <p class="lead">Ask questions about your company's documents. Every sentence cites its source, nothing leaves your machine, and when the answer isn't in the documents, it says so.</p>
+    <div class="buttons">
+      <a class="btn glow" href="#demo">Watch the demo</a>
+      <a class="btn" href="https://github.com/Jathin4/enterprise-knowledge-assistant">View on GitHub</a>
+    </div>
+  </div>
+  <div class="stage" id="stage" aria-hidden="true">
+    <div class="halo"></div>
+    <div class="ring"></div><div class="ring inner"></div>
+    <span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span><span class="orb o4"></span>
+    <!-- Artwork exported from the Figma file; hidden automatically if the file is missing -->
+    <img src="hero.png" alt="" onload="document.getElementById('stage').classList.add('has-art')" onerror="this.remove()">
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <p class="eyebrow">Features</p>
+    <h2>Built for documents you can't <span class="grad">send to the cloud</span></h2>
+    <p class="sub">Everything runs on one laptop with open-source models. No paid APIs, no data leaving the machine.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">📎</div><h3>Every sentence cited</h3><p>Click a citation to read the exact passage, file, page and section. Citations are checked in code, so a source can't be invented.</p></div>
+      <div class="card"><div class="ic">🔒</div><h3>Permission-aware search</h3><p>Users only search the collections they belong to. The filter runs before the model sees anything, so nothing leaks.</p></div>
+      <div class="card"><div class="ic">🙅</div><h3>Refuses instead of guessing</h3><p>When the documents don't contain the answer, it says "I could not find sufficient evidence", not something made up.</p></div>
+      <div class="card"><div class="ic">🛡️</div><h3>Injection quarantine</h3><p>Uploaded text that tries to instruct the AI is caught by a pattern check and an LLM classifier, and never stored.</p></div>
+      <div class="card"><div class="ic">🤖</div><h3>Verified agent reports</h3><p>Agents plan, research and write claims; a verifier checks each one against the exact sentence it quotes.</p></div>
+      <div class="card"><div class="ic">✅</div><h3>Human approval</h3><p>Nothing is final until a second person approves. The requester can't approve their own report.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow">How it works</p>
+    <h2>From upload to <span class="grad">cited answer</span></h2>
+    <div class="steps">
+      <div class="step"><h3>Upload</h3><p>PDF, Word or text. Text is extracted, cleaned and checked for attacks.</p></div>
+      <div class="step"><h3>Index</h3><p>Split into sections and embedded with nomic-embed-text into PostgreSQL + pgvector.</p></div>
+      <div class="step"><h3>Retrieve</h3><p>Only passages the user may read, close enough to the question to count.</p></div>
+      <div class="step"><h3>Answer</h3><p>qwen3:8b writes from the evidence only; citations are validated in code.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="screens">
+  <div class="wrap">
+    <p class="eyebrow">Screens</p>
+    <h2>The real app, <span class="grad">not a mock-up</span></h2>
+    <div class="screens">
+      <figure class="shot tall"><img src="screenshots/chat.png" alt="Chat: a cited answer with its source passage open, and a refusal for a question about another team's documents"><figcaption>Chat: a cited answer with its source open, and a refusal for a document this user can't read.</figcaption></figure>
+      <figure class="shot"><img src="screenshots/agents-report.png" alt="Verified findings of a gap report"><figcaption>Agents: verified findings. "Met" needs evidence from both documents.</figcaption></figure>
+      <figure class="shot"><img src="screenshots/documents.png" alt="Documents list with two quarantined passages"><figcaption>Documents: attacks quarantined at upload.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <p class="eyebrow">Results</p>
+    <h2>Measured, <span class="grad">not assumed</span></h2>
+    <p class="sub">A benchmark you tuned on tells you what you already know. So it was also tested on two real 80-page NIST standards it had never seen.</p>
+    <div class="results">
+      <div class="res">
+        <h3>Own benchmark</h3>
+        <p class="note">70 questions over 8 synthetic documents (tuned on these)</p>
+        <dl>
+          <dt>Right passage in top 5</dt><dd class="good">100%</dd>
+          <dt>Facts correct</dt><dd class="good">100%</dd>
+          <dt>Correct refusals</dt><dd class="good">100%</dd>
+          <dt>Prompt injection resisted</dt><dd class="good">100%</dd>
+        </dl>
+      </div>
+      <div class="res honest">
+        <h3>Held-out: real documents</h3>
+        <p class="note">35 questions written before any measurement</p>
+        <dl>
+          <dt>Right passage in top 5</dt><dd>89%</dd>
+          <dt>Facts correct</dt><dd>85%</dd>
+          <dt>Correct refusals</dt><dd class="good">100%</dd>
+          <dt>Prompt injection resisted</dt><dd class="warn">50% → fixed</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="callout">The held-out test found a reworded prompt-injection attack that got through. It's now quarantined at upload, with no false alarms on 1,488 real passages. What still fails is listed openly in the README.</div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <p class="eyebrow">Demo</p>
+    <h2>See it <span class="grad">in 2½ minutes</span></h2>
+    <div class="video">
+      <video controls preload="metadata" poster="screenshots/chat.png">
+        <source src="demo-video.mp4" type="video/mp4">
+        Your browser can't play this video. <a href="demo-video.mp4">Download it</a>.
+      </video>
+    </div>
+    <div class="stack">
+      <span>FastAPI</span><span>PostgreSQL + pgvector</span><span>LangGraph</span><span>React</span><span>Ollama · qwen3:8b</span><span>nomic-embed-text</span><span>75 tests</span>
+    </div>
+  </div>
+</section>
+
+<div class="cta">
+  <div class="wrap">
+    <h2>Read the code. <span class="grad">Check the numbers.</span></h2>
+    <div class="buttons"><a class="btn glow" href="https://github.com/Jathin4/enterprise-knowledge-assistant">View on GitHub</a></div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Enterprise AI Knowledge Assistant · a portfolio project</span>
+    <span id="credit">Visual style inspired by the "Serendale.ai" hero exploration on Figma Community.</span>
+  </div>
+</footer>
+
+</body>
+</html>
