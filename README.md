@@ -58,6 +58,8 @@ Most "chat with your PDF" demos stop at uploading a file and asking a question. 
 
 The guiding idea: **an AI system is only as useful as it is verifiable.**
 
+**Companion project:** [AI Claims Intelligence Platform](https://github.com/Jathin4/claims-intelligence) applies the same idea to structured records instead of documents: a calibrated ML model, anomaly detection, SHAP explanations and investigation agents whose numbers are checked in code.
+
 ---
 
 ## Results
