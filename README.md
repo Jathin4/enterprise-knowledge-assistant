@@ -2,6 +2,8 @@
 
 **🌐 Live project page: [jathin4.github.io/enterprise-knowledge-assistant/](https://jathin4.github.io/enterprise-knowledge-assistant/)**
 
+**➕ Combined version:** [AI Claims Platform](https://github.com/Jathin4/Ai-claims-platform) ([live page](https://jathin4.github.io/Ai-claims-platform/)) merges this project with Claims Intelligence: every claim is checked against its own policy wording, with cited pages.
+
 A private, fully local AI assistant that answers questions from a company's own documents, with citations you can check.
 
 Employees upload PDFs, Word files and text files into the collections they belong to. The system extracts the text, splits it into sections, turns each section into an embedding (a vector of numbers that captures its meaning), and stores everything in PostgreSQL. A question is answered by retrieving the most relevant passages the user is allowed to see, then letting a local LLM write an answer **only from that evidence**, citing every source. If the documents don't contain the answer, it says so. For bigger jobs, like a gap report between two documents, a team of agents researches, analyses and verifies every claim, then **pauses for a person to approve**. Quality is **measured** on benchmarks, not assumed.
